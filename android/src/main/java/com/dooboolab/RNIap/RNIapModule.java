@@ -283,7 +283,9 @@ public class RNIapModule extends ReactContextBaseJavaModule {
             item.putString("productId", json.getString("productId"));
             item.putString("transactionId", json.optString("orderId"));
             item.putString("transactionDate", String.valueOf(json.getLong("purchaseTime")));
-            item.putString("transactionReceipt", json.getString("purchaseToken"));
+            if (json.has("originalJson")) {
+              item.putString("transactionReceipt", json.getString("originalJson"));
+            }
             item.putString("purchaseToken", json.getString("purchaseToken"));
             item.putString("dataAndroid", data);
             item.putString("signatureAndroid", signature);
@@ -327,7 +329,7 @@ public class RNIapModule extends ReactContextBaseJavaModule {
               item.putString("productId", purchase.getSku());
               item.putString("transactionId", purchase.getOrderId());
               item.putString("transactionDate", String.valueOf(purchase.getPurchaseTime()));
-              item.putString("transactionReceipt", purchase.getPurchaseToken());
+              item.putString("transactionReceipt", purchase.getOriginalJson());
               item.putString("purchaseToken", purchase.getPurchaseToken());
               item.putString("dataAndroid", purchase.getOriginalJson());
               item.putString("signatureAndroid", purchase.getSignature());
@@ -347,7 +349,7 @@ public class RNIapModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void buyItemByType(final String type, final String sku, final String oldSku, final Promise promise) {
+  public void buyItemByType(final String type, final String sku, final String oldSku, final Integer prorationMode, final Promise promise) {
     final Activity activity = getCurrentActivity();
 
     if (activity == null) {
@@ -363,13 +365,24 @@ public class RNIapModule extends ReactContextBaseJavaModule {
 
         if (type.equals(BillingClient.SkuType.SUBS) && oldSku != null && !oldSku.isEmpty()) {
           // Subscription upgrade/downgrade
-          builder.addOldSku(oldSku);
+          if (prorationMode != null && prorationMode != 0) {
+            builder.setOldSku(oldSku);
+            if (prorationMode == BillingFlowParams.ProrationMode.IMMEDIATE_AND_CHARGE_PRORATED_PRICE) {
+              builder.setReplaceSkusProrationMode(BillingFlowParams.ProrationMode.IMMEDIATE_AND_CHARGE_PRORATED_PRICE);
+            } else if (prorationMode == BillingFlowParams.ProrationMode.IMMEDIATE_WITHOUT_PRORATION) {
+              builder.setReplaceSkusProrationMode(BillingFlowParams.ProrationMode.IMMEDIATE_WITHOUT_PRORATION);
+            } else {
+              builder.addOldSku(oldSku);
+            }
+          } else {
+            builder.addOldSku(oldSku);
+          }
         }
 
         BillingFlowParams flowParams = builder.setSku(sku).setType(type).build();
 
         int responseCode = mBillingClient.launchBillingFlow(activity,flowParams);
-        Log.d(TAG, "buyItemByType (type: " + type + ", sku: " + sku + ", oldSku: " + oldSku + ") responseCode: " + responseCode + "(" + getBillingResponseCodeName(responseCode) + ")");
+        Log.d(TAG, "buyItemByType (type: " + type + ", sku: " + sku + ", oldSku: " + oldSku + ", prorationMode: " + prorationMode + ") responseCode: " + responseCode + "(" + getBillingResponseCodeName(responseCode) + ")");
         if (responseCode != BillingClient.BillingResponse.OK) {
           rejectPromisesWithBillingError(PROMISE_BUY_ITEM,responseCode);
         }
@@ -416,7 +429,7 @@ public class RNIapModule extends ReactContextBaseJavaModule {
       item.putString("productId", purchase.getSku());
       item.putString("transactionId", purchase.getOrderId());
       item.putString("transactionDate", String.valueOf(purchase.getPurchaseTime()));
-      item.putString("transactionReceipt", purchase.getPurchaseToken());
+      item.putString("transactionReceipt", purchase.getOriginalJson());
       item.putString("purchaseToken", purchase.getPurchaseToken());
       item.putString("dataAndroid", purchase.getOriginalJson());
       item.putString("signatureAndroid", purchase.getSignature());

@@ -1,4 +1,24 @@
 ## Changelogs
+- **[2.3.17]**
+  + Avoid iml file to be uploaded to npm repo that may fail from build in android.
+- **[2.3.16]**
+  + Fixes not responding to successful purchase.
+- **[2.3.9]**
+  + Fixes for unsafe getting originalJson when restoring item and Android.
+- **[2.3.6]**
+  + Fixed `types` for `buySubscription`.
+- **[2.3.5]**
+  + Fixed `transactionReceipt` field in `android`.
+- **[2.3.4]**
+  + Get originalJson in Android as a transanctionReceipt for validation #277.
+- **[2.3.3]**
+  + Fixed regression in adding proration mode. #279.
+- **[2.3.2]**
+  + Replace deprecated 'compile' gradle configuration with 'implementation' #282
+- **[2.3.1]**
+  + Fixed breakings.
+- **[2.3.0]**
+  + Add prorationMode.
 - **[2.2.2]**
   + Automatically handle connection initialization.
 - **[2.2.1]**

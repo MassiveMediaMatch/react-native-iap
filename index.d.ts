@@ -34,6 +34,7 @@ export interface ProductPurchase {
   transactionReceipt: string;
   signatureAndroid?: string;
   dataAndroid?: string;
+  purchaseToken?: string;
 }
 
 export interface SubscriptionPurchase extends ProductPurchase {
@@ -108,9 +109,10 @@ export function getAvailablePurchases() : Promise<Purchase[]>;
  * Create a subscription to a sku
  * @param {string} sku The product's sku/ID
  * @param {string} [oldSku] Optional old product's ID for upgrade/downgrade (Android only)
+ * @param {number} [prorationMode] Optional proration mode for upgrade/downgrade (Android only)
  * @returns {Promise<Purchase>}
  */
-export function buySubscription(sku: string, oldSku?: string) : Promise<SubscriptionPurchase>;
+export function buySubscription(sku: string, oldSku?: string, prorationMode?: number) : Promise<SubscriptionPurchase>;
 
 /**
  * Buy a product
@@ -141,6 +143,13 @@ export function buyProductWithoutFinishTransaction(sku: string) : Promise<Produc
  * @returns void
  */
 export function clearTransaction(): void;
+
+/**
+ * Clear valid Products (iOS only)
+ *   Remove all products which are validated by Apple server.
+ * @returns {null}
+ */
+export function clearProducts(): void;
 
 /**
  * Send finishTransaction call to Apple IAP server. Call this function after receipt validation process.

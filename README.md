@@ -59,17 +59,18 @@ Also, note that this is our last migration for renaming method names without any
 | Func  | Param  | Return | Description |
 | :------------ |:---------------:| :---------------:| :-----|
 | prepare |  | `Promise<void>` | Deprecated. Use `initConnection instead` |
-| initConnection |  | `Promise<void>` | Init IAP module. On Android this can be called to preload the connection to Play Services. In iOS, it will simply call `canMakePayments` method and return value.|
+| initConnection |  | `Promise<string>` | Init IAP module. On Android this can be called to preload the connection to Play Services. In iOS, it will simply call `canMakePayments` method and return value.|
 | getProducts | `string[]` Product IDs/skus | `Promise<Product[]>` | Get a list of products (consumable and non-consumable items, but not subscriptions). Note: On iOS versions earlier than 11.2 this method _will_ return subscriptions if they are included in your list of SKUs. This is because we cannot differentiate between IAP products and subscriptions prior to 11.2. |
 | getSubscriptions | `string[]` Subscription IDs/skus | `Promise<Subscription[]>` | Get a list of subscriptions. Note: On iOS versions earlier than 11.2 this method _will_ return subscriptions if they are included in your list of SKUs. This is because we cannot differentiate between IAP products and subscriptions prior to 11.2. |
 | getPurchaseHistory | | `Promise<Purchase[]>` | Gets an invetory of purchases made by the user regardless of consumption status (where possible) |
 | getAvailablePurchases | | `Promise<Purchase[]>` | Get all purchases made by the user (either non-consumable, or haven't been consumed yet)
-| buySubscription | `string` Subscription ID/sku, `string` Old Subscription ID/sku (on Android) | `Promise<Purchase>` | Create (buy) a subscription to a sku. For upgrading/downgrading subscription on Android pass the second parameter with current subscription ID, on iOS this is handled automatically by store. |
+| buySubscription | `string` Subscription ID/sku, `string` Old Subscription ID/sku (on Android), `int` Proration Mode (on Android) | `Promise<Purchase>` | Create (buy) a subscription to a sku. For upgrading/downgrading subscription on Android pass the second parameter with current subscription ID, on iOS this is handled automatically by store. You can also optionally pass in a proration mode integer for upgrading/downgrading subscriptions on Android |
 | buyProduct | `string` Product ID/sku | `Promise<Purchase>` | Buy a product |
 | buyProductWithQuantityIOS | `string` Product ID/sku, `number` Quantity | `Promise<Purchase>` | Buy a product with a specified quantity (iOS only) |
 | buyProductWithoutFinishTransaction | `string` Product ID/sku | `Promise<Purchase>` | Buy a product without finish transaction call (iOS only) |
 | finishTransaction | `void` | `void` | Send finishTransaction call to Apple IAP server. Call this function after receipt validation process |
 | clearTransaction | `void` | `void` | Clear up the unfinished transanction which sometimes causes problem. Read more in below readme. |
+| clearProducts | `void` | `void` | Clear all products, subscriptions in ios. Read more in below readme. |
 | consumeProduct | `string` Purchase token | `Promise<void>` | Consume a product (on Android.) No-op on iOS. |
 | endConnection | | `Promise<void>` | End billing connection (on Android.) No-op on iOS. |
 | consumeAllItems | | `Promise<void>` | Consume all items in android so they are able to buy again (on Android.) No-op on iOS. |
@@ -267,8 +268,9 @@ Currently, serverless receipt validation is possible using `validateReceiptIos` 
 ```javascript
 const receiptBody = {
   'receipt-data': purchase.transactionReceipt,
+  'password': '******'
 };
-const result = await validateReceiptIos(receiptBody, false, 54);
+const result = await validateReceiptIos(receiptBody, false);
 console.log(result);
 ```
 For further information, please refer to [guide](https://developer.apple.com/library/content/releasenotes/General/ValidateAppStoreReceipt/Chapters/ValidateRemotely.html).
@@ -310,8 +312,57 @@ sendToServer(transactionReceipt, {
   },
 });
 ```
+
+Another issue regarding `valid products`. In iOS, generally you are fetching valid products at App launching process.
+If you fetch again, or fetch valid subscription, the products are added to the array object in iOS side (objective-c NSMutableArray).
+This makes unexpected behavior when you fetch with a part of product lists.
+(For example, if you have products of [A, B, C], and you call fetch function with only [A], this module returns [A, B, C])
+This is weird, but it works.
+But, weird result is weird, so we made a new method which remove all valid products.
+If you need to clear all products, subscriptions in that array, just call `clearProducts()`, and do the fetching job again, and you will receive what you expected.
+
 We've like to update this solution as version changes in `react-native-iap`.
-----
+
+
+## Q & A
+
+#### Can I buy product right away skipping fetching products if I already know productId?
+- You can in `Android` but not in `ios`. In `ios` you should always `fetchProducts` first. You can see more info [here](https://medium.com/ios-development-tips-and-tricks/working-with-ios-in-app-purchases-e4b55491479b).
+- Related issue in #283.
+
+#### How do I validate receipt in ios?
+- Official doc is [here](https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ValidateRemotely.html).
+- Resolved issues in #203, #237.
+
+#### How do I validate receipt in android?
+- Offical doc is [here](https://developer.android.com/google/play/billing/billing_library_overview).
+- I've developed this feature for other developers to contribute easily who are aware of these things. The doc says you can also get the `accessToken` via play console without any of your backend server. You can get this by following process.
+  * Select your app > Services & APIs > "YOUR LICENSE KEY FOR THIS APPLICATION Base64-encoded RSA public key to include in your binary". [reference](https://stackoverflow.com/questions/27132443/how-to-find-my-google-play-services-android-base64-public-key).
+
+#### How do I use react-native-iap in expo?
+- You should detach from `expo` and get `expokit` out of it.
+- Releated issue in #174.
+
+#### Invalid productId in ios.
+- Please try below and make sure you've done belows.
+  - Steps
+    1. Completed an effective "Agreements, Tax, and Banking."
+    2. Setup sandbox testing account in "Users and Roles."
+    3. Signed into iOS device with sandbox account.
+    3. Set up three In-App Purchases with the following status:
+       i. Ready to Submit
+       ii. Missing Metadata
+       iii. Waiting for Review
+    4. Enable "In-App Purchase" in Xcode "Capabilities" and in Apple Developer -> "App ID" setting.
+Delete app / Restart device / Quit "store" related processes in Activity Monitor / Xcode Development Provisioning Profile -> Clean -> Build.
+  - Related issues #256, #263.
+
+#### Module is not working as expected. Throws error.
+- The `react-native link` script isn't perfect and sometimes broke. Please try `unlinking` and `linking` again. Or try manual installing.
+
+#### getAvailablePurchases return empty array.
+- `getAvailablePurcahses` is used only when you purchase a non-consumable product. This can be restored only. If you want to find out if a user subscribes the product, you should check the receipt which you should store in your own database. Apple suggests you handle this in your own backend to do things like what you are trying to achieve.
+
 
 ## Supporting react-native-iap
 

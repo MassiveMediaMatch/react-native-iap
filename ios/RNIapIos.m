@@ -177,6 +177,11 @@ RCT_EXPORT_METHOD(clearTransaction) {
   }
 }
 
+RCT_EXPORT_METHOD(clearProducts) {
+  NSLog(@"\n\n\n  ***  clear valid products. \n\n.");
+  [validProducts removeAllObjects];
+}
+
 #pragma mark ===== StoreKit Delegate
 
 -(void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
@@ -214,7 +219,7 @@ RCT_EXPORT_METHOD(clearTransaction) {
   NSString* key = RCTKeyForInstance(productsRequest);
   dispatch_sync(myQueue, ^{
     [self rejectPromisesForKey:key code:[self standardErrorCode:(int)error.code]
-                       message:[self englishErrorCodeDescription:(int)error.code] error:error];
+                       message:error.localizedDescription error:error];
   });
 }
 
@@ -241,7 +246,7 @@ RCT_EXPORT_METHOD(clearTransaction) {
         NSString *key = RCTKeyForInstance(transaction.payment.productIdentifier);
         dispatch_sync(myQueue, ^{
           [self rejectPromisesForKey:key code:[self standardErrorCode:(int)transaction.error.code]
-                             message:[self englishErrorCodeDescription:(int)transaction.error.code]
+                             message:transaction.error.localizedDescription
                                error:transaction.error];
         });
         break;
@@ -267,7 +272,7 @@ RCT_EXPORT_METHOD(clearTransaction) {
 -(void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error {
   dispatch_sync(myQueue, ^{
     [self rejectPromisesForKey:@"availableItems" code:[self standardErrorCode:(int)error.code]
-                       message:[self englishErrorCodeDescription:(int)error.code] error:error];
+                       message:error.localizedDescription error:error];
   });
   NSLog(@"\n\n\n restoreCompletedTransactionsFailedWithError \n\n.");
 }
@@ -302,27 +307,6 @@ RCT_EXPORT_METHOD(clearTransaction) {
   }
   return descriptions[code];
 }
-
--(NSString *)englishErrorCodeDescription:(int)code {
-  NSArray *descriptions = @[
-    @"An unknown or unexpected error has occured. Please try again later.",
-    @"Unable to process the transaction: your device is not allowed to make purchases.",
-    @"Cancelled.",
-    @"Oops! Payment information invalid. Did you enter your password correctly?",
-    @"Payment is not allowed on this device. If you are the one authorized to make purchases on this device, you can turn payments on in Settings.",
-    @"Sorry, but this product is currently not available in the store.",
-    @"Unable to make purchase: Cloud service permission denied.",
-    @"Unable to process transaction: Your internet connection isn't stable! Try again later.",
-    @"Unable to process transaction: Cloud service revoked."
-  ];
-
-  if (0 <= code && code < descriptions.count) 
-    return descriptions[code];
-  else
-    return [NSString stringWithFormat:@"%@ (Error code: %d)", descriptions[0], code];
-}
-
-
 
 -(NSDictionary*)getProductObject:(SKProduct *)product {
   NSNumberFormatter *formatter = [[NSNumberFormatter alloc] init];
@@ -439,12 +423,21 @@ RCT_EXPORT_METHOD(clearTransaction) {
   
   if (receiptData == nil) return nil;
 
-  NSMutableDictionary *purchase = [NSMutableDictionary dictionaryWithDictionary: @{
-    @"transactionDate": @(transaction.transactionDate.timeIntervalSince1970 * 1000),
-    @"transactionId": transaction.transactionIdentifier,
-    @"productId": transaction.payment.productIdentifier,
-    @"transactionReceipt":[receiptData base64EncodedStringWithOptions:0]
-  }];
+  NSMutableDictionary *purchase = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+      @(transaction.transactionDate.timeIntervalSince1970 * 1000), @"transactionDate",
+      transaction.transactionIdentifier, @"transactionId",
+      transaction.payment.productIdentifier, @"productId",
+      [receiptData base64EncodedStringWithOptions:0], @"transactionReceipt",
+      nil
+  ];
+
+  // NSMutableDictionary *purchase = [NSMutableDictionary dictionaryWithDictionary: @{
+  //   @"transactionDate": @(transaction.transactionDate.timeIntervalSince1970 * 1000),
+  //   @"transactionId": transaction.transactionIdentifier,
+  //   @"productId": transaction.payment.productIdentifier,
+  //   @"transactionReceipt":[receiptData base64EncodedStringWithOptions:0],
+  // }];
+
   // originalTransaction is available for restore purchase and purchase of cancelled/expired subscriptions
   SKPaymentTransaction *originalTransaction = transaction.originalTransaction;
   if (originalTransaction) {
