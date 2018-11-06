@@ -407,8 +407,12 @@ RCT_EXPORT_METHOD(clearTransaction) {
   if (@available(iOS 10.0, *)) {
     currencyCode = product.priceLocale.currencyCode;
   }
+    
+    NSLocale *storeLocale = product.priceLocale;
+    NSString *storeCountry = (NSString*)CFLocaleGetValue((CFLocaleRef)storeLocale, kCFLocaleCountryCode);
 
   return @{
+    @"country": storeCountry,
     @"productId" : product.productIdentifier,
     @"price" : [product.price stringValue],
     @"currency" : currencyCode,

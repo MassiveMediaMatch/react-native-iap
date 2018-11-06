@@ -6,6 +6,7 @@ interface Common {
   price: string
   currency: string
   localizedPrice: string
+  country: string
 }
 
 export interface Product<ID extends string> extends Common {
