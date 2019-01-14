@@ -142,20 +142,20 @@ export function buyProductWithoutFinishTransaction(sku: string) : Promise<Produc
  *     link : https://github.com/dooboolab/react-native-iap/issues/257
  * @returns void
  */
-export function clearTransaction(): void;
+export function clearTransaction(): Promise<void>;
 
 /**
  * Clear valid Products (iOS only)
  *   Remove all products which are validated by Apple server.
  * @returns {null}
  */
-export function clearProducts(): void;
+export function clearProducts(): Promise<void>;
 
 /**
  * Send finishTransaction call to Apple IAP server. Call this function after receipt validation process.
  * @returns void
  */
-export function finishTransaction(): void;
+export function finishTransaction(): Promise<void>;
 
 /**
  * Consume a product (on Android.) No-op on iOS.
